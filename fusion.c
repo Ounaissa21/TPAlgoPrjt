@@ -34,6 +34,18 @@ static GtkTreeModel *create_and_fill_model(UserData *user_data_struct) {
     return GTK_TREE_MODEL(store);
 }
 
+static void on_sort_button_clicked(GtkWidget *button, gpointer user_data) {
+    // Récupérer la structure UserData depuis le bouton "SIZE"
+    UserData *user_data_struct = (UserData *)g_object_get_data(G_OBJECT(button), "user_data");
+
+    // Appliquer le tri par fusion
+    merge_sort(user_data_struct, 0, user_data_struct->vector_size - 1);
+
+    // Mettre à jour le modèle du GtkTreeView avec le tableau trié
+    GtkTreeView *treeview = GTK_TREE_VIEW(g_object_get_data(G_OBJECT(button), "treeview"));
+    gtk_tree_view_set_model(treeview, create_and_fill_model(user_data_struct));
+}
+
 // Callback pour le clic sur le bouton "SIZE"
 static void on_size_button_clicked(GtkWidget *button, gpointer user_data) {
     // Récupérer la valeur de l'entier depuis le GtkSpinButton
@@ -138,6 +150,64 @@ static void on_destroy(GtkWidget *widget, gpointer user_data) {
         g_free(user_data_struct->integer_array);
     }
     g_free(user_data_struct);
+}
+// Fonction pour effectuer le tri par fusion
+void merge_sort(UserData *user_data, int left, int right) {
+    if (left < right) {
+        int mid = left + (right - left) / 2;
+
+        // Trier les deux moitiés
+        merge_sort(user_data, left, mid);
+        merge_sort(user_data, mid + 1, right);
+
+        // Fusionner les deux moitiés triées
+        merge(user_data, left, mid, right);
+    }
+}
+
+// Fonction pour fusionner deux sous-tableaux de user_data->integer_array[]
+void merge(UserData *user_data, int left, int mid, int right) {
+    int i, j, k;
+    int n1 = mid - left + 1;
+    int n2 = right - mid;
+
+    // Créer des tableaux temporaires
+    int L[n1], R[n2];
+
+    // Copier les données vers les tableaux temporaires L[] et R[]
+    for (i = 0; i < n1; i++)
+        L[i] = user_data->integer_array[left + i];
+    for (j = 0; j < n2; j++)
+        R[j] = user_data->integer_array[mid + 1 + j];
+
+    // Fusionner les tableaux temporaires L[] et R[] dans user_data->integer_array[left..right]
+    i = 0; // Index initial du premier sous-tableau
+    j = 0; // Index initial du second sous-tableau
+    k = left; // Index initial du tableau fusionné
+    while (i < n1 && j < n2) {
+        if (L[i] <= R[j]) {
+            user_data->integer_array[k] = L[i];
+            i++;
+        } else {
+            user_data->integer_array[k] = R[j];
+            j++;
+        }
+        k++;
+    }
+
+    // Copier les éléments restants de L[], s'il y en a
+    while (i < n1) {
+        user_data->integer_array[k] = L[i];
+        i++;
+        k++;
+    }
+
+    // Copier les éléments restants de R[], s'il y en a
+    while (j < n2) {
+        user_data->integer_array[k] = R[j];
+        j++;
+        k++;
+    }
 }
 
 int main(int argc, char *argv[]) {
