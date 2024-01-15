@@ -1,9 +1,13 @@
 #include <gtk/gtk.h>
 
+
+
 typedef struct {
     int *integer_array;  // Vecteur pour stocker les entiers
     int vector_size;     // Taille du vecteur
 } UserData;
+
+
 
 // Fonction pour changer la couleur du bouton
 void change_button_color(GtkWidget *button, const char *color_str) {
@@ -34,17 +38,7 @@ static GtkTreeModel *create_and_fill_model(UserData *user_data_struct) {
     return GTK_TREE_MODEL(store);
 }
 
-static void on_sort_button_clicked(GtkWidget *button, gpointer user_data) {
-    // Récupérer la structure UserData depuis le bouton "SIZE"
-    UserData *user_data_struct = (UserData *)g_object_get_data(G_OBJECT(button), "user_data");
 
-    // Appliquer le tri par fusion
-    merge_sort(user_data_struct, 0, user_data_struct->vector_size - 1);
-
-    // Mettre à jour le modèle du GtkTreeView avec le tableau trié
-    GtkTreeView *treeview = GTK_TREE_VIEW(g_object_get_data(G_OBJECT(button), "treeview"));
-    gtk_tree_view_set_model(treeview, create_and_fill_model(user_data_struct));
-}
 
 // Callback pour le clic sur le bouton "SIZE"
 static void on_size_button_clicked(GtkWidget *button, gpointer user_data) {
@@ -78,10 +72,28 @@ static void on_size_button_clicked(GtkWidget *button, gpointer user_data) {
     gtk_tree_view_set_model(treeview, create_and_fill_model(user_data_struct));
 }
 
+
+static void on_sort_button_clicked(GtkWidget *button, gpointer user_data) {
+    // Récupérer la structure UserData depuis le bouton "SIZE"
+    UserData *user_data_struct = (UserData *)g_object_get_data(G_OBJECT(button), "user_data");
+
+    // Récupérer la fenêtre parente
+    GtkWindow *parent_window = GTK_WINDOW(gtk_widget_get_toplevel(button));
+
+    // Appliquer le tri par fusion
+    merge_sort(user_data_struct, 0, user_data_struct->vector_size - 1, parent_window);
+
+    // Mettre à jour le modèle du GtkTreeView avec le tableau trié
+    GtkTreeView *treeview = GTK_TREE_VIEW(g_object_get_data(G_OBJECT(button), "treeview"));
+    gtk_tree_view_set_model(treeview, create_and_fill_model(user_data_struct));
+}
+
+
+
 static void on_activate(GtkApplication *app, gpointer user_data) {
     GtkWidget *window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "Tri par fusion");
-    gtk_window_set_default_size(GTK_WINDOW(window), 1354, 650);
+    gtk_window_set_default_size(GTK_WINDOW(window), 450, 650);
 
     // Créer une grille
     GtkWidget *grid = gtk_grid_new();
@@ -131,13 +143,23 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
     gtk_tree_view_append_column(GTK_TREE_VIEW(treeview), column);
 
     // Modifier la position du bloc en bas à côté du bord de la fenêtre
-    gtk_grid_attach(GTK_GRID(grid), button, 0, 1, 2, 1);
-    gtk_grid_attach(GTK_GRID(grid), treeview, 0, 2, 2, 1);
+    gtk_grid_attach(GTK_GRID(grid), button, 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), treeview, 0, 2, 1, 1);
 
     // Modifier la couleur de fond de la fenêtre en vert menthe foncé
     GdkRGBA color;
-    gdk_rgba_parse(&color, "rgb(190, 238, 219)");  // Ces valeurs correspondent à un vert menthe plus foncé
+    gdk_rgba_parse(&color, "rgb(1, 65, 52)");  // Ces valeurs correspondent à un vert menthe plus foncé
     gtk_widget_override_background_color(window, GTK_STATE_FLAG_NORMAL, &color);
+
+
+        // Ajouter le bouton "TRIER"
+    GtkWidget *sort_button = gtk_button_new_with_label("TRIER");
+    gtk_widget_set_size_request(sort_button, 100, 90);
+    change_button_color(sort_button, "rgb(173, 216, 230)");
+    g_signal_connect(sort_button, "clicked", G_CALLBACK(on_sort_button_clicked), NULL);
+    gtk_grid_attach(GTK_GRID(grid), sort_button, 2, 0, 1, 1);
+
+
 
     // Afficher la fenêtre
     gtk_widget_show_all(window);
@@ -151,20 +173,36 @@ static void on_destroy(GtkWidget *widget, gpointer user_data) {
     }
     g_free(user_data_struct);
 }
+
+
 // Fonction pour effectuer le tri par fusion
-void merge_sort(UserData *user_data, int left, int right) {
+void merge_sort(UserData *user_data, int left, int right, GtkWindow *parent_window) {
     if (left < right) {
         int mid = left + (right - left) / 2;
 
         // Trier les deux moitiés
-        merge_sort(user_data, left, mid);
-        merge_sort(user_data, mid + 1, right);
+        merge_sort(user_data, left, mid, parent_window);
+        merge_sort(user_data, mid + 1, right, parent_window);
 
         // Fusionner les deux moitiés triées
         merge(user_data, left, mid, right);
+
+        // Afficher le tableau à chaque étape du tri
+        gchar *step_text = g_strdup_printf("Étape du tri : ");
+        for (int i = 0; i < user_data->vector_size; i++) {
+            gchar *int_text = g_strdup_printf("%d ", user_data->integer_array[i]);
+            step_text = g_strconcat(step_text, int_text, NULL);
+            g_free(int_text);
+        }
+
+        // Afficher le texte dans une fenêtre de dialogue
+        GtkWidget *dialog = gtk_message_dialog_new(parent_window,GTK_DIALOG_MODAL,GTK_MESSAGE_INFO,GTK_BUTTONS_OK,"%s",step_text);
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+
+        g_free(step_text);
     }
 }
-
 // Fonction pour fusionner deux sous-tableaux de user_data->integer_array[]
 void merge(UserData *user_data, int left, int mid, int right) {
     int i, j, k;
@@ -218,6 +256,39 @@ int main(int argc, char *argv[]) {
     g_signal_connect(app, "shutdown", G_CALLBACK(on_destroy), NULL);
 
     int status = g_application_run(G_APPLICATION(app), argc, argv);
+
+    // Maintenant, après la fermeture de la fenêtre, triez et affichez le vecteur directement sur la console
+    if (status == 0) {
+        // Créer une instance de UserData
+        UserData user_data;
+        user_data.integer_array = g_malloc(5 * sizeof(int));  // Remplacez 5 par la taille de votre vecteur
+        user_data.vector_size = 5;  // Remplacez 5 par la taille de votre vecteur
+
+        // Remplir le vecteur avec des valeurs
+        for (int i = 0; i < user_data.vector_size; i++) {
+            user_data.integer_array[i] = g_random_int();  // Vous pouvez remplacer g_random_int() par vos propres valeurs
+        }
+
+        // Afficher le vecteur avant le tri
+        printf("Vecteur avant le tri : ");
+        for (int i = 0; i < user_data.vector_size; i++) {
+            printf("%d ", user_data.integer_array[i]);
+        }
+        printf("\n");
+
+        // Appliquer le tri par fusion
+        merge_sort(&user_data, 0, user_data.vector_size - 1, NULL);
+
+        // Afficher le vecteur après le tri
+        printf("Vecteur après le tri : ");
+        for (int i = 0; i < user_data.vector_size; i++) {
+            printf("%d ", user_data.integer_array[i]);
+        }
+        printf("\n");
+
+        // Libérer la mémoire allouée pour le vecteur
+        g_free(user_data.integer_array);
+    }
 
     g_object_unref(app);
 
